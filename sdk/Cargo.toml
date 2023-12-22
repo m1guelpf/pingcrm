@@ -1,0 +1,30 @@
+[package]
+name = "sdk"
+readme = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+publish = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = { workspace = true }
+
+[lib]
+name = "sdk"
+path = "src/lib.rs"
+
+[dependencies]
+app = { version = "0.0.0", path = "../app", package = "app" }
+http = { version = "1.0.0", package = "http" }
+hyper = { version = "1.1.0", package = "hyper" }
+matchit = { version = "0.7.3", git = "https://github.com/ibraheemdev/matchit", branch = "master", package = "matchit" }
+pavex = { version = "0.1.0", git = "https://github.com/LukeMathWalker/pavex", branch = "main", package = "pavex" }
+thiserror = { version = "1.0.51", package = "thiserror" }
+
+[package.metadata.px.generate]
+generator_name = "sdk-builder"
+generator_type = "cargo_workspace_binary"
+
+[lints]
+clippy = { all = "allow" }
+rust = { unused_variables = "allow" }

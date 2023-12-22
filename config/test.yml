@@ -1,0 +1,6 @@
+app:
+  log: trace
+server:
+  ip: "127.0.0.1"
+  # The OS will assign a random port to the test server.
+  port: 0

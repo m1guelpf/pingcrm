@@ -1,0 +1,22 @@
+[package]
+name = "app"
+readme = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+publish = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = { workspace = true }
+
+[[bin]]
+name = "sdk-builder"
+path = "src/bin/sdk-builder.rs"
+
+[dependencies]
+tracing = "0.1"
+serde-aux = "4"
+cargo_px_env = "0.1"
+serde = { version = "1", features = ["derive"] }
+pavex = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
+pavex_cli_client = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }

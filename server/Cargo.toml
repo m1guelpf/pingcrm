@@ -1,0 +1,31 @@
+[package]
+name = "server"
+readme = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+publish = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = { workspace = true }
+
+[[bin]]
+name = "server"
+path = "src/bin/api.rs"
+
+[dependencies]
+anyhow = "1"
+tracing = "0.1"
+dotenvy = "0.15"
+tracing-panic = "0.1"
+tracing-error = "0.2.0"
+app = { path = "../app" }
+sdk = { path = "../sdk" }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"]}
+figment = { version = "0.10", features = ["env", "yaml"] }
+pavex = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "registry", "smallvec", "std", "tracing-log"] }
+
+[dev-dependencies]
+reqwest = "0.11"
