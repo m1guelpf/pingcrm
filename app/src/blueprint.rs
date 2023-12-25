@@ -13,6 +13,11 @@ use crate::routes;
 pub fn blueprint() -> Blueprint {
 	let mut bp = Blueprint::new();
 
+	bp.constructor(f!(crate::storage::register), Lifecycle::Singleton);
+	bp.constructor(f!(crate::config::session_config), Lifecycle::Singleton)
+		.cloning(CloningStrategy::CloneIfNecessary);
+
+	pavex_session::register(&mut bp);
 	register_common_constructors(&mut bp);
 	register_frontend_constructors(&mut bp);
 	add_telemetry_middleware(&mut bp);

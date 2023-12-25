@@ -2,3 +2,4 @@ sdk/*
 !sdk/Cargo.toml
 .env
 /target
+storage

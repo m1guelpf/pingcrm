@@ -1,4 +1,5 @@
 use pavex::server::IncomingStream;
+use pavex_session::SessionConfig;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use std::net::SocketAddr;
 
@@ -7,6 +8,7 @@ use std::net::SocketAddr;
 pub struct Config {
 	pub app: AppConfig,
 	pub server: ServerConfig,
+	pub session: SessionConfig,
 	pub database: DatabaseConfig,
 }
 
@@ -49,4 +51,9 @@ impl ServerConfig {
 		let addr = SocketAddr::new(self.ip, self.port);
 		IncomingStream::bind(addr).await
 	}
+}
+
+#[must_use]
+pub fn session_config(config: Config) -> SessionConfig {
+	config.session
 }
