@@ -1,4 +1,7 @@
 .git
 .env
 target
+storage
 Dockerfile
+frontend/dist
+frontend/node_modules

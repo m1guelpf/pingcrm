@@ -7,10 +7,21 @@ FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
+FROM node:21-slim as frontend
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+COPY frontend /app/frontend
+WORKDIR /app/frontend
+
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN pnpm run build
+
 FROM chef AS builder
 RUN cargo install --locked --git "https://github.com/LukeMathWalker/pavex.git" --branch "main" pavex_cli
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
+COPY --from=frontend /app/frontend/dist /app/frontend/dist
 COPY . .
 RUN cargo px build --release --bin server
 
