@@ -18,11 +18,12 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm run build
 
 FROM chef AS builder
+ENV APP_ENV=production
 RUN cargo install --locked --git "https://github.com/LukeMathWalker/pavex.git" --branch "main" pavex_cli
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
-COPY --from=frontend /app/frontend/dist /app/frontend/dist
 COPY . .
+COPY --from=frontend /app/frontend/dist /app/frontend/dist
 RUN cargo px build --release --bin server
 
 FROM debian:bookworm-slim as runtime
