@@ -24,3 +24,4 @@ mime_guess = "2.0.4"
 serde = { version = "1", features = ["derive"] }
 pavex = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
 pavex_cli_client = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
+ensemble = { git = "https://github.com/m1guelpf/ensemble", features = ["mysql", "rustls", "validator"], default-features = false }
