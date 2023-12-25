@@ -15,8 +15,12 @@ path = "src/bin/sdk-builder.rs"
 
 [dependencies]
 tracing = "0.1"
+indoc = "2.0.4"
 serde-aux = "4"
+sha256 = "1.4.0"
 cargo_px_env = "0.1"
+rust-embed = "8.1.0"
+mime_guess = "2.0.4"
 serde = { version = "1", features = ["derive"] }
 pavex = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
 pavex_cli_client = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
