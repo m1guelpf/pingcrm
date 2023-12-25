@@ -1,12 +1,15 @@
 use pavex::server::IncomingStream;
+use pavex_session::SessionConfig;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use std::net::SocketAddr;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 /// The application's configuration.
 pub struct Config {
 	pub app: AppConfig,
 	pub server: ServerConfig,
+	pub session: SessionConfig,
+	pub database: DatabaseConfig,
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -17,6 +20,13 @@ pub struct AppConfig {
 
 	/// The log level to use.
 	pub log: String,
+}
+
+#[allow(clippy::module_name_repetitions)]
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct DatabaseConfig {
+	/// The URL of the database to connect to.
+	pub url: String,
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -41,4 +51,9 @@ impl ServerConfig {
 		let addr = SocketAddr::new(self.ip, self.port);
 		IncomingStream::bind(addr).await
 	}
+}
+
+#[must_use]
+pub fn session_config(config: Config) -> SessionConfig {
+	config.session
 }

@@ -10,7 +10,8 @@ pub struct TestApi {
 impl TestApi {
 	pub async fn spawn() -> Self {
 		let config = Self::get_config();
-		let application_state = sdk::build_application_state().await;
+
+		ensemble::setup(&config.database.url).unwrap();
 
 		let tcp_listener = config
 			.server
@@ -20,13 +21,17 @@ impl TestApi {
 		let address = tcp_listener
 			.local_addr()
 			.expect("The server TCP listener doesn't have a local socket address");
+
+		let address = format!("http://{}:{}", config.server.ip, address.port());
+
+		let application_state = sdk::build_application_state(config).await.unwrap();
 		let server_builder = Server::new().listen(tcp_listener);
 
 		tokio::spawn(async move { sdk::run(server_builder, application_state).await });
 
 		TestApi {
+			address,
 			client: reqwest::Client::new(),
-			address: format!("http://{}:{}", config.server.ip, address.port()),
 		}
 	}
 

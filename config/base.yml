@@ -5,3 +5,14 @@ app:
 server:
   ip: "0.0.0.0"
   port: 8000
+
+session:
+  path: /
+  driver: file
+  secure: true
+  same_site: lax
+  http_only: true
+  lifetime: 120min
+  lottery: [2, 100]
+  file_location: sessions
+  cookie_name: pavex_session

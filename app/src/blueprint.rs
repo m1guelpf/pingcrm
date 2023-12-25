@@ -8,12 +8,18 @@ use pavex::{
 
 use crate::routes;
 
-/// The main blueprint, containing all the routes, constructors and error handlers required by our API.
 #[must_use]
+/// The main blueprint, containing all the routes, constructors and error handlers required by our API.
 pub fn blueprint() -> Blueprint {
 	let mut bp = Blueprint::new();
 
+	bp.constructor(f!(crate::storage::register), Lifecycle::Singleton);
+	bp.constructor(f!(crate::config::session_config), Lifecycle::Singleton)
+		.cloning(CloningStrategy::CloneIfNecessary);
+
+	pavex_session::register(&mut bp);
 	register_common_constructors(&mut bp);
+	register_frontend_constructors(&mut bp);
 	add_telemetry_middleware(&mut bp);
 	routes::handler(&mut bp);
 
@@ -59,6 +65,22 @@ fn register_common_constructors(bp: &mut Blueprint) {
 		f!(<pavex::request::body::BodySizeLimit as std::default::Default>::default),
 		Lifecycle::RequestScoped,
 	);
+}
+
+fn register_frontend_constructors(bp: &mut Blueprint) {
+	// Vite
+	bp.constructor(f!(crate::frontend::vite::Vite::new), Lifecycle::Singleton);
+
+	// Inertia
+	bp.constructor(
+		f!(crate::frontend::inertia::InertiaRequest::new),
+		Lifecycle::RequestScoped,
+	);
+	bp.constructor(
+		f!(crate::frontend::inertia::Inertia::new),
+		Lifecycle::RequestScoped,
+	);
+	bp.wrap(f!(crate::frontend::inertia::middleware));
 }
 
 /// Add the telemetry middleware, as well as the constructors of its dependencies.

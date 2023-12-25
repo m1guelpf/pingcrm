@@ -25,6 +25,7 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"]}
 figment = { version = "0.10", features = ["env", "yaml"] }
 pavex = { git = "https://github.com/LukeMathWalker/pavex", branch = "main" }
+ensemble = { git = "https://github.com/m1guelpf/ensemble", features = ["mysql", "rustls", "validator"], default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "registry", "smallvec", "std", "tracing-log"] }
 
 [dev-dependencies]
