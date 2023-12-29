@@ -14,7 +14,7 @@ const Login = () => {
 		(event: FormEvent<HTMLFormElement>) => {
 			event.preventDefault()
 
-			post('/login')
+			post('/auth/login')
 		},
 		[post]
 	)

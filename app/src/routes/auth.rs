@@ -1,9 +1,15 @@
 use ensemble::{types::Hashed, Model};
 use pavex::{
+	blueprint::{
+		router::{GET, POST},
+		Blueprint,
+	},
+	f,
 	http::StatusCode,
 	request::body::JsonBody,
 	response::{IntoResponse, Response},
 };
+use pavex_session::Session;
 use serde_json::json;
 
 use crate::{
@@ -29,7 +35,11 @@ impl AuthenticatedSessionController {
 	/// # Panics
 	///
 	/// This function will panic if the database query fails.
-	pub async fn store(inertia: &Inertia, JsonBody(req): JsonBody<LoginRequest>) -> Response {
+	pub async fn store(
+		inertia: &Inertia,
+		mut session: Session,
+		JsonBody(req): JsonBody<LoginRequest>,
+	) -> Response {
 		let user = User::query()
 			.r#where("email", '=', req.email)
 			.r#where("password", '=', req.password)
@@ -50,8 +60,25 @@ impl AuthenticatedSessionController {
 				.into_response();
 		};
 
-		dbg!("logged in as {}", user.name);
+		session.set("auth.user", user.id);
 
 		StatusCode::OK.into_response()
 	}
+}
+
+pub fn routes() -> Blueprint {
+	let mut bp = Blueprint::new();
+
+	bp.route(
+		GET,
+		"/login",
+		f!(crate::routes::auth::AuthenticatedSessionController::create),
+	);
+	bp.route(
+		POST,
+		"/login",
+		f!(crate::routes::auth::AuthenticatedSessionController::store),
+	);
+
+	bp
 }

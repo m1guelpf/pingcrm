@@ -9,11 +9,11 @@ use tracing::Instrument;
 
 /// A logging middleware that wraps the request pipeline in the root span.
 /// It takes care to record key information about the request and the response.
-pub async fn logger<T>(next: Next<T>, root_span: RootSpan) -> Response
-where
-	T: Send + IntoFuture<Output = Response>,
-	T::IntoFuture: Send,
-{
+#[allow(clippy::future_not_send)]
+pub async fn logger<C: IntoFuture<Output = Response>>(
+	next: Next<C>,
+	root_span: RootSpan,
+) -> Response {
 	let response = next
 		.into_future()
 		.instrument(root_span.clone().into_inner())

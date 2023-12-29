@@ -1,42 +1,46 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, rc::Rc};
 
 use rand::{distributions::Alphanumeric, Rng};
 use serde_json::Value;
 
-use crate::Handler;
-
-pub struct Store<H: Handler> {
+#[derive(Clone, Default)]
+pub struct Session {
 	/// The session ID.
 	id: String,
-	/// The session handler implementation.
-	handler: H,
-	/// The session name.
-	name: String,
-	/// Session store started status.
+	/// Whether the session has been started.
 	started: bool,
 	/// The session attributes.
-	attributes: HashMap<String, serde_json::Value>,
+	attributes: Rc<RefCell<HashMap<String, serde_json::Value>>>,
 }
 
-impl<H: Handler> Store<H> {
+impl Debug for Session {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Session")
+			.field("id", &self.id)
+			.field("started", &self.started)
+			.field("attributes", &self.attributes.borrow())
+			.finish()
+	}
+}
+
+impl Session {
 	/// Create a new session instance.
-	pub fn new(name: String, handler: H, id: Option<String>) -> Self {
-		let mut store = Self {
-			name,
-			handler,
-			started: false,
-			id: String::new(),
-			attributes: HashMap::new(),
-		};
-
-		store.set_id(id);
-
-		store
+	pub fn new() -> Self {
+		Self::default()
 	}
 
 	/// Start the session, reading the data from a handler.
-	pub async fn start(&mut self) -> Result<(), H::Error> {
-		self.attributes.extend(self.handler.read(&self.id).await?);
+	pub fn start(
+		&mut self,
+		id: Option<String>,
+		attributes: HashMap<String, serde_json::Value>,
+	) -> Result<(), Error> {
+		if self.started {
+			return Err(Error::AlreadyStarted);
+		}
+
+		self.set_id(id);
+		self.attributes.replace(attributes);
 
 		if !self.has("_token") {
 			self.regenerate_token();
@@ -48,31 +52,28 @@ impl<H: Handler> Store<H> {
 	}
 
 	/// Save the session data to storage.
-	pub async fn save(&mut self) -> Result<(), H::Error> {
+	pub fn end(&mut self) -> Result<HashMap<String, serde_json::Value>, Error> {
 		self.age_flash_data();
-
-		self.handler.write(&self.id, &self.attributes).await?;
-
 		self.started = false;
 
-		Ok(())
+		Ok(self.attributes.take())
 	}
 
 	/// Age the flash data for the session.
 	fn age_flash_data(&mut self) {
 		self.forget(self.get::<Vec<String>>("_flash.old").unwrap_or_default());
 
-		self.put(
+		self.set(
 			"_flash.old",
 			self.get::<Vec<String>>("_flash.new").unwrap_or_default(),
 		);
 
-		self.put::<Vec<&str>>("_flash.new", vec![]);
+		self.set::<Vec<&str>>("_flash.new", vec![]);
 	}
 
 	/// Get all of the session data.
 	pub fn all(&self) -> HashMap<String, serde_json::Value> {
-		self.attributes.clone()
+		self.attributes.borrow().clone()
 	}
 
 	/// Get a subset of the session data.
@@ -80,6 +81,7 @@ impl<H: Handler> Store<H> {
 		let keys = keys.get_keys();
 
 		self.attributes
+			.borrow()
 			.iter()
 			.fold(HashMap::new(), |mut acc, (key, value)| {
 				if keys.contains(key) {
@@ -92,9 +94,11 @@ impl<H: Handler> Store<H> {
 
 	/// Checks if a key exists.
 	pub fn exists<K: IntoKey>(&self, key: K) -> bool {
+		let attributes = self.attributes.borrow();
+
 		key.get_keys()
 			.iter()
-			.all(|key| self.attributes.contains_key(key))
+			.all(|key| attributes.contains_key(key))
 	}
 
 	/// Determine if the given key is missing from the session data.
@@ -104,10 +108,11 @@ impl<H: Handler> Store<H> {
 
 	/// Checks if a key is present and not null.
 	pub fn has<K: IntoKey>(&self, key: K) -> bool {
+		let attributes = self.attributes.borrow();
 		let keys = key.get_keys();
 
 		keys.iter().all(|key| {
-			let Some(value) = self.attributes.get(key) else {
+			let Some(value) = attributes.get(key) else {
 				return false;
 			};
 
@@ -118,6 +123,7 @@ impl<H: Handler> Store<H> {
 	/// Get an item from the session.
 	pub fn get<T: serde::de::DeserializeOwned>(&self, key: &str) -> Option<T> {
 		self.attributes
+			.borrow()
 			.get(key)
 			.map(|value| serde_json::from_value(value.clone()).unwrap())
 	}
@@ -132,12 +138,13 @@ impl<H: Handler> Store<H> {
 
 	/// Replace the given session attributes entirely.
 	pub fn replace(&mut self, attributes: HashMap<String, serde_json::Value>) {
-		self.attributes = attributes;
+		self.attributes.replace(attributes);
 	}
 
 	/// Put a key / value pair in the session.
-	pub fn put<T: serde::Serialize>(&mut self, key: &str, value: T) {
+	pub fn set<T: serde::Serialize>(&mut self, key: &str, value: T) {
 		self.attributes
+			.borrow_mut()
 			.insert(key.to_string(), serde_json::to_value(value).unwrap());
 	}
 
@@ -147,14 +154,14 @@ impl<H: Handler> Store<H> {
 		key: &str,
 		value: impl FnOnce() -> T,
 	) -> T {
-		if let Some(value) = self.attributes.get(key) {
+		if let Some(value) = self.attributes.borrow().get(key) {
 			if !value.is_null() {
 				return serde_json::from_value(value.clone()).unwrap();
 			}
 		};
 
 		let value = value();
-		self.put(key, &value);
+		self.set(key, &value);
 
 		value
 	}
@@ -162,8 +169,9 @@ impl<H: Handler> Store<H> {
 	/// Push a value onto a session array.
 	pub fn push<T: serde::Serialize>(&mut self, key: &str, value: T) {
 		let mut default_values = Vec::new();
+		let mut attributes = self.attributes.borrow_mut();
 
-		let values = match self.attributes.get_mut(key) {
+		let values = match attributes.get_mut(key) {
 			Some(Value::Array(values)) => values,
 			Some(_) => panic!("Key {key} is not an array"),
 			None => &mut default_values,
@@ -174,13 +182,13 @@ impl<H: Handler> Store<H> {
 
 	/// Increment the value of an item in the session.
 	pub fn increment(&mut self, key: &str, amount: i64) -> i64 {
-		let value = match self.attributes.get_mut(key) {
+		let value = match self.attributes.borrow_mut().get_mut(key) {
 			Some(Value::Number(value)) => value.as_i64().unwrap(),
 			Some(_) => panic!("Key {key} is not a number"),
 			None => 0,
 		};
 
-		self.put(key, value + amount);
+		self.set(key, value + amount);
 
 		value + amount
 	}
@@ -192,14 +200,14 @@ impl<H: Handler> Store<H> {
 
 	/// Flash a key / value pair to the session.
 	pub fn flash<T: serde::Serialize>(&mut self, key: &str, value: T) {
-		self.put(key, value);
+		self.set(key, value);
 		self.push("_flash.new", key);
 		self.remove_from_old_flash_data(key);
 	}
 
 	/// Flash a key / value pair to the session for immediate use.
 	pub fn now<T: serde::Serialize>(&mut self, key: &str, value: T) {
-		self.put(key, value);
+		self.set(key, value);
 		self.push("_flash.old", key);
 	}
 
@@ -211,7 +219,7 @@ impl<H: Handler> Store<H> {
 				.into_iter(),
 		);
 
-		self.put::<Vec<&str>>("_flash.old", vec![]);
+		self.set::<Vec<&str>>("_flash.old", vec![]);
 	}
 
 	/// Reflash a subset of the current flash data.
@@ -232,58 +240,22 @@ impl<H: Handler> Store<H> {
 
 	/// Remove one or many items from the session.
 	pub fn forget<K: IntoKey>(&mut self, keys: K) {
+		let mut attributes = self.attributes.borrow_mut();
 		let keys = keys.get_keys();
 
 		for key in keys {
-			self.attributes.remove(&key);
+			attributes.remove(&key);
 		}
 	}
 
 	/// Remove all of the items from the session.
 	pub fn flush(&mut self) {
-		self.attributes = HashMap::new();
-	}
-
-	/// Flush the session data and regenerate the ID.
-	pub async fn invalidate(&mut self) -> Result<(), H::Error> {
-		self.flush();
-
-		self.migrate(true).await
-	}
-
-	/// Generate a new session identifier.
-	pub async fn regenerate(&mut self, destroy: bool) -> Result<(), H::Error> {
-		self.migrate(destroy).await?;
-		self.regenerate_token();
-
-		Ok(())
-	}
-
-	/// Generate a new session ID for the session.
-	pub async fn migrate(&mut self, destroy: bool) -> Result<(), H::Error> {
-		if destroy {
-			self.handler.destroy(&self.id).await?;
-		}
-
-		self.handler.set_exists(false).await?;
-		self.set_id(None);
-
-		Ok(())
+		self.attributes.borrow_mut().clear();
 	}
 
 	/// Determine if the session has been started.
 	pub fn is_started(&self) -> bool {
 		self.started
-	}
-
-	/// Get the name of the session.
-	pub fn get_name(&self) -> &str {
-		&self.name
-	}
-
-	/// Set the name of the session.
-	pub fn set_name(&mut self, name: String) {
-		self.name = name;
 	}
 
 	/// Get the current session ID.
@@ -298,7 +270,7 @@ impl<H: Handler> Store<H> {
 
 	/// Regenerate the CSRF token value.
 	pub fn regenerate_token(&mut self) {
-		self.put("_token", random_str(40));
+		self.set("_token", random_str(40));
 	}
 
 	/// Get the previous URL from the session.
@@ -308,15 +280,7 @@ impl<H: Handler> Store<H> {
 
 	/// Set the "previous" URL in the session.
 	pub fn set_previous_url(&mut self, url: String) {
-		self.put("_previous.url", url);
-	}
-
-	/// Set the request on the handler instance.
-	pub async fn set_request_on_handler(
-		&mut self,
-		request: &pavex::request::RequestHead,
-	) -> Result<(), H::Error> {
-		self.handler.set_request(request).await
+		self.set("_previous.url", url);
 	}
 
 	/// Merge new flash keys into the new flash array.
@@ -332,7 +296,7 @@ impl<H: Handler> Store<H> {
 		values.sort_unstable();
 		values.dedup();
 
-		self.put("_flash.new", values);
+		self.set("_flash.new", values);
 	}
 
 	/// Remove the given keys from the old flash data.
@@ -347,7 +311,7 @@ impl<H: Handler> Store<H> {
 			.filter(|key| !keys.contains(key))
 			.collect::<Vec<_>>();
 
-		self.put("_flash.old", values);
+		self.set("_flash.old", values);
 	}
 
 	/// Set the session ID.
@@ -363,11 +327,12 @@ impl<H: Handler> Store<H> {
 			random_str(40)
 		}
 	}
+}
 
-	/// Collect garbage for the session handler.
-	pub async fn collect_garbage(&mut self) -> Result<(), H::Error> {
-		self.handler.garbage_collect().await
-	}
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+	#[error("This session has already been initialized")]
+	AlreadyStarted,
 }
 
 pub trait IntoKey {

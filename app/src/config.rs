@@ -54,6 +54,7 @@ impl ServerConfig {
 }
 
 #[must_use]
+#[allow(clippy::module_name_repetitions)]
 pub fn session_config(config: Config) -> SessionConfig {
 	config.session
 }

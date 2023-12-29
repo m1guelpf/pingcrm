@@ -14,5 +14,7 @@ session:
   http_only: true
   lifetime: 120min
   lottery: [2, 100]
-  file_location: sessions
   cookie_name: pavex_session
+  file_location: storage/sessions
+  csrf:
+    exclude_paths: []

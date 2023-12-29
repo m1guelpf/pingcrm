@@ -37,17 +37,17 @@ impl Inertia {
 	///
 	/// This function will panic if it fails to serialize the frontend manifest.
 	#[must_use]
-	pub fn new(vite: &Vite, request: InertiaRequest) -> Self {
-		let version = if let Vite::Production { manifest } = &vite {
+	pub fn new(vite: Arc<Vite>, request: InertiaRequest) -> Self {
+		let version = if let Vite::Production { manifest } = vite.as_ref() {
 			Some(sha256(serde_json::to_string(&manifest).unwrap()))
 		} else {
 			None
 		};
 
 		Self {
+			vite,
 			version,
 			request: Some(request),
-			vite: Arc::new(vite.clone()),
 		}
 	}
 
@@ -95,11 +95,12 @@ impl Inertia {
 }
 
 /// Middleware that handles Inertia requests.
-pub async fn middleware<C>(inertia: &Inertia, request: &RequestHead, next: Next<C>) -> Response
-where
-	C: IntoFuture<Output = Response> + Send,
-	C::IntoFuture: Send,
-{
+#[allow(clippy::future_not_send)]
+pub async fn middleware<C: IntoFuture<Output = Response>>(
+	inertia: &Inertia,
+	request: &RequestHead,
+	next: Next<C>,
+) -> Response {
 	if let Some(inertia_req) = &inertia.request {
 		if matches!(request.method, Method::GET) && inertia.version != inertia_req.version {
 			return inertia.redirect(&inertia_req.path);

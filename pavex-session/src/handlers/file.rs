@@ -1,60 +1,44 @@
-use std::{collections::HashMap, io, path::PathBuf, time::Duration};
-
-use flysystem::{adapters::LocalAdapter, Filesystem};
+use std::{collections::HashMap, fs, io, path::PathBuf, rc::Rc, time::Duration};
 
 pub struct FileHandler {
 	path: PathBuf,
 	valid_for: Duration,
-	files: Filesystem<LocalAdapter>,
 }
 
 impl FileHandler {
-	pub async fn new(
-		path: PathBuf,
-		valid_for: Duration,
-		files: Filesystem<LocalAdapter>,
-	) -> Result<Self, Error> {
-		Ok(Self {
-			path,
-			files,
-			valid_for,
-		})
+	pub fn new(path: PathBuf, valid_for: Duration) -> Self {
+		Self { path, valid_for }
 	}
 }
 
 impl super::Handler for FileHandler {
-	type Error = Error;
+	type Error = io::Error;
 
 	async fn read(&mut self, id: &str) -> Result<HashMap<String, serde_json::Value>, Self::Error> {
 		let path = self.path.join(id);
 
-		let file_exists = self
-			.files
-			.file_exists(&path)
-			.await
-			.map_err(|e| Error::FileExists(e.to_string()))?;
-
-		let has_expired = match self.files.last_modified(&path).await {
-			Ok(last_modified) => last_modified.elapsed()? > self.valid_for,
+		let file_contents = match fs::read(&path) {
+			Ok(contents) => contents,
 			Err(e) => {
 				if e.kind() == io::ErrorKind::NotFound {
-					true
+					return Ok(HashMap::new());
 				} else {
-					return Err(Error::LastModified(e.to_string()));
+					return Err(e);
 				}
 			},
 		};
 
-		if file_exists && !has_expired {
-			let data = self
-				.files
-				.read::<Vec<u8>>(&path)
-				.await
-				.map_err(|e| Error::Read(e.to_string()))?;
-			serde_json::from_slice(&data).unwrap_or_default()
+		if fs::metadata(&path)?
+			.modified()?
+			.elapsed()
+			.unwrap_or_default()
+			> self.valid_for
+		{
+			fs::remove_file(&path)?;
+			return Ok(HashMap::new());
 		}
 
-		Ok(HashMap::new())
+		Ok(serde_json::from_slice(file_contents.as_ref()).unwrap_or_default())
 	}
 
 	async fn write<T: serde::Serialize>(
@@ -64,19 +48,33 @@ impl super::Handler for FileHandler {
 	) -> Result<(), Self::Error> {
 		let path = self.path.join(id);
 
-		self.files
-			.write(&path, serde_json::to_vec(&attributes).unwrap_or_default())
-			.await
-			.map_err(|e| Error::Write(e.to_string()))
+		fs::write(
+			path,
+			serde_json::to_vec(&attributes).map_err(io::Error::other)?,
+		)
 	}
 
 	async fn destroy(&mut self, id: &str) -> Result<(), Self::Error> {
 		let path = self.path.join(id);
 
-		self.files
-			.delete(&path)
-			.await
-			.map_err(|e| Error::Delete(e.to_string()))
+		fs::remove_file(path)
+	}
+
+	async fn collect_garbage(&mut self, max_lifetime: &Duration) -> Result<u64, Self::Error> {
+		let expired = fs::read_dir(&self.path)?
+			.flatten()
+			.map(|entry| {
+				let last_modified = entry.metadata()?.modified().map_err(io::Error::other)?;
+
+				if &last_modified.elapsed().unwrap_or_default() > max_lifetime {
+					fs::remove_file(entry.path())?;
+				}
+
+				Ok::<_, io::Error>(())
+			})
+			.collect::<Result<Rc<_>, _>>()?;
+
+		Ok(expired.len() as u64)
 	}
 }
 
@@ -102,4 +100,7 @@ pub enum Error {
 
 	#[error("failed to delete session file")]
 	Delete(String),
+
+	#[error("failed to list session files")]
+	List(String),
 }

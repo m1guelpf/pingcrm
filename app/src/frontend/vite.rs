@@ -1,7 +1,6 @@
 use indoc::formatdoc;
-use std::{collections::HashMap, rc::Rc};
-
-use super::StaticFiles;
+use rust_embed::RustEmbed;
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,8 +13,13 @@ pub struct ManifestEntry {
 pub enum Error {
 	#[error("Could not find dev server information, make sure you are running `pnpm dev`")]
 	HrmServerNotFound,
+
+	#[error("Could not parse dev server information: {0}")]
+	FailedToParseHrmServer(#[from] std::string::FromUtf8Error),
+
 	#[error("Could not find build manifest, make sure you've run `pnpm build`")]
 	BuildManifestNotFound,
+
 	#[error("Failed to parse manifest: {0}")]
 	FailedToParseManifest(#[from] serde_json::Error),
 }
@@ -35,31 +39,19 @@ impl Vite {
 	///
 	/// # Errors
 	///
-	/// This function will return an error if the manifest file could not be found.
-	pub fn new() -> Result<Self, Error> {
+	/// This function will return an error if the dev server information could not be found in debug mode, or if the build manifest could not be found in release mode.
+	pub fn new<E: RustEmbed>() -> Result<Self, Error> {
 		if cfg!(debug_assertions) {
-			let dev_server = StaticFiles::get(".vite-dev")
-				.ok_or_else(|| {
-					anyhow::anyhow!(
-                    "Could not find dev server information, make sure you are running `pnpm dev`"
-                )
-				})
-				.map_err(|_| Error::HrmServerNotFound)?;
+			let dev_server = E::get(".vite-dev").ok_or_else(|| Error::HrmServerNotFound)?;
 
 			Ok(Self::Development {
-				dev_server: String::from_utf8_lossy(&dev_server.data).to_string(),
+				dev_server: String::from_utf8(dev_server.data.to_vec())?,
 			})
 		} else {
-			let manifest = StaticFiles::get("manifest.json")
-				.ok_or_else(|| {
-					anyhow::anyhow!(
-						"Could not find build manifest, make sure you've run `pnpm build`"
-					)
-				})
-				.map_err(|_| Error::BuildManifestNotFound)?;
+			let manifest = E::get("manifest.json").ok_or_else(|| Error::BuildManifestNotFound)?;
 
 			Ok(Self::Production {
-				manifest: serde_json::from_str(&String::from_utf8_lossy(&manifest.data))?,
+				manifest: serde_json::from_str(&String::from_utf8(manifest.data.to_vec())?)?,
 			})
 		}
 	}
@@ -113,7 +105,16 @@ impl Vite {
                     window.$RefreshSig$ = () => (type) => type
                     window.__vite_plugin_react_preamble_installed__ = true
                 </script>
-            "#
+            "#, dev_server = dev_server
 		})
+	}
+
+	/// Get a shareable instance of the Vite handler.
+	///
+	/// # Errors
+	///
+	/// This function will return an error if the dev server information could not be found in debug mode, or if the build manifest could not be found in release mode.
+	pub fn shared<E: RustEmbed>() -> Result<Arc<Self>, Error> {
+		Ok(Arc::new(Self::new::<E>()?))
 	}
 }
