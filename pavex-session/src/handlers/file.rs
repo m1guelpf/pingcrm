@@ -7,6 +7,8 @@ pub struct FileHandler {
 
 impl FileHandler {
 	pub fn new(path: PathBuf, valid_for: Duration) -> Self {
+		fs::create_dir_all(&path).unwrap();
+
 		Self { path, valid_for }
 	}
 }

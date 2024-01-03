@@ -33,6 +33,7 @@ impl StartSession {
 		};
 
 		session.start(session_id, session_contents).unwrap();
+		dbg!(&session);
 
 		Self::collect_garbage(&mut session_backend, &config)
 			.await
@@ -76,7 +77,7 @@ impl StartSession {
 			.unwrap_or_default();
 
 		if req.method == Method::GET && !is_xhr {
-			session.set_previous_url(req.uri.to_string());
+			session.set_previous_url(req.target.to_string());
 		}
 
 		Ok(())

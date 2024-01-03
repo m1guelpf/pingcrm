@@ -6,9 +6,9 @@ use serde_json::Value;
 #[derive(Clone, Default)]
 pub struct Session {
 	/// The session ID.
-	id: String,
+	id: Rc<RefCell<String>>,
 	/// Whether the session has been started.
-	started: bool,
+	started: Rc<RefCell<bool>>,
 	/// The session attributes.
 	attributes: Rc<RefCell<HashMap<String, serde_json::Value>>>,
 }
@@ -16,8 +16,8 @@ pub struct Session {
 impl Debug for Session {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Session")
-			.field("id", &self.id)
-			.field("started", &self.started)
+			.field("id", &self.id.borrow())
+			.field("started", &*self.started.borrow())
 			.field("attributes", &self.attributes.borrow())
 			.finish()
 	}
@@ -35,7 +35,7 @@ impl Session {
 		id: Option<String>,
 		attributes: HashMap<String, serde_json::Value>,
 	) -> Result<(), Error> {
-		if self.started {
+		if self.has_started() {
 			return Err(Error::AlreadyStarted);
 		}
 
@@ -46,7 +46,7 @@ impl Session {
 			self.regenerate_token();
 		}
 
-		self.started = true;
+		*self.started.borrow_mut() = true;
 
 		Ok(())
 	}
@@ -54,7 +54,7 @@ impl Session {
 	/// Save the session data to storage.
 	pub fn end(&mut self) -> Result<HashMap<String, serde_json::Value>, Error> {
 		self.age_flash_data();
-		self.started = false;
+		*self.started.borrow_mut() = false;
 
 		Ok(self.attributes.take())
 	}
@@ -73,11 +73,19 @@ impl Session {
 
 	/// Get all of the session data.
 	pub fn all(&self) -> HashMap<String, serde_json::Value> {
+		if !self.has_started() {
+			panic!("Tried to read from session before it was started");
+		}
+
 		self.attributes.borrow().clone()
 	}
 
 	/// Get a subset of the session data.
 	pub fn only<K: IntoKey>(&self, keys: K) -> HashMap<String, serde_json::Value> {
+		if !self.has_started() {
+			panic!("Tried to read from session before it was started");
+		}
+
 		let keys = keys.get_keys();
 
 		self.attributes
@@ -122,6 +130,10 @@ impl Session {
 
 	/// Get an item from the session.
 	pub fn get<T: serde::de::DeserializeOwned>(&self, key: &str) -> Option<T> {
+		if !self.has_started() {
+			panic!("Tried to read from session before it was started");
+		}
+
 		self.attributes
 			.borrow()
 			.get(key)
@@ -254,13 +266,13 @@ impl Session {
 	}
 
 	/// Determine if the session has been started.
-	pub fn is_started(&self) -> bool {
-		self.started
+	pub fn has_started(&self) -> bool {
+		*self.started.borrow()
 	}
 
 	/// Get the current session ID.
-	pub fn id(&self) -> &str {
-		&self.id
+	pub fn id(&self) -> String {
+		self.id.borrow().clone()
 	}
 
 	/// Get the CSRF token value.
@@ -281,6 +293,12 @@ impl Session {
 	/// Set the "previous" URL in the session.
 	pub fn set_previous_url(&mut self, url: String) {
 		self.set("_previous.url", url);
+	}
+
+	pub fn flashed(&self) -> HashMap<String, serde_json::Value> {
+		let flashed = self.get::<Vec<String>>("_flash.new").unwrap_or_default();
+
+		self.only(flashed)
 	}
 
 	/// Merge new flash keys into the new flash array.
@@ -316,12 +334,14 @@ impl Session {
 
 	/// Set the session ID.
 	pub fn set_id(&mut self, id: Option<String>) {
+		let mut self_id = self.id.borrow_mut();
+
 		let Some(id) = id else {
-			self.id = random_str(40);
+			*self_id = random_str(40);
 			return;
 		};
 
-		self.id = if id.chars().all(|c| c.is_ascii_alphanumeric()) && id.len() == 40 {
+		*self_id = if id.chars().all(|c| c.is_ascii_alphanumeric()) && id.len() == 40 {
 			id
 		} else {
 			random_str(40)

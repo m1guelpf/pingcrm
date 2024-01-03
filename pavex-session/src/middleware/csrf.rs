@@ -45,7 +45,7 @@ impl VerifyCsrfToken {
 		config
 			.exclude_paths
 			.iter()
-			.any(|route| req.uri.path() == route)
+			.any(|route| req.target.path() == route)
 	}
 
 	fn tokens_match(req: &RequestHead, session: &Session) -> bool {
@@ -69,8 +69,6 @@ pub struct TokenMismatchError {}
 
 impl IntoResponse for TokenMismatchError {
 	fn into_response(self) -> Response {
-		Response::new(StatusCode::from_u16(419).unwrap())
-			.set_typed_body(self.to_string())
-			.box_body()
+		Response::new(StatusCode::from_u16(419).unwrap()).set_typed_body(self.to_string())
 	}
 }

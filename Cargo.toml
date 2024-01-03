@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 default-members = ["server"]
-members = ["app", "server", "sdk", "pavex-session"]
+members = ["app", "server", "sdk", "pavex-session", "framework"]
 
 [workspace.package]
 edition = "2021"

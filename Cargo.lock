@@ -82,9 +82,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.76"
+version = "1.0.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59d2a3357dde987206219e78ecfbbb6e8dad06cbb65292758d3270e6254f7355"
+checksum = "c9d19de80eff169429ac1e9f48fffb163916b448a44e8e046186232046d9e1f9"
 
 [[package]]
 name = "app"
@@ -93,11 +93,12 @@ dependencies = [
  "anyhow",
  "cargo_px_env",
  "ensemble",
+ "framework",
  "indoc",
  "mime_guess",
  "pavex",
  "pavex-session",
- "pavex_cli_client",
+ "phf",
  "rust-embed",
  "serde",
  "serde-aux",
@@ -579,6 +580,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "framework"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "pavex",
+ "pavex_cli_client",
+ "pluralizer",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -1440,7 +1453,7 @@ checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 [[package]]
 name = "pavex"
 version = "0.1.0"
-source = "git+https://github.com/LukeMathWalker/pavex?branch=main#43f5b107765e0bd31d424a28f13f3fdfb016dcd3"
+source = "git+https://github.com/LukeMathWalker/pavex?branch=main#e18c421e0f05f61e37a138e2953b2ebe94da95d5"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1487,7 +1500,7 @@ dependencies = [
 [[package]]
 name = "pavex_cli_client"
 version = "0.1.0"
-source = "git+https://github.com/LukeMathWalker/pavex?branch=main#43f5b107765e0bd31d424a28f13f3fdfb016dcd3"
+source = "git+https://github.com/LukeMathWalker/pavex?branch=main#e18c421e0f05f61e37a138e2953b2ebe94da95d5"
 dependencies = [
  "anyhow",
  "pavex",
@@ -1496,7 +1509,7 @@ dependencies = [
 [[package]]
 name = "pavex_macros"
 version = "0.1.0"
-source = "git+https://github.com/LukeMathWalker/pavex?branch=main#43f5b107765e0bd31d424a28f13f3fdfb016dcd3"
+source = "git+https://github.com/LukeMathWalker/pavex?branch=main#e18c421e0f05f61e37a138e2953b2ebe94da95d5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1584,6 +1597,48 @@ dependencies = [
  "once_cell",
  "pest",
  "sha2",
+]
+
+[[package]]
+name = "phf"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ade2d8b8f33c7333b51bcf0428d37e217e9f32192ae4772156f65063b8ce03dc"
+dependencies = [
+ "phf_macros",
+ "phf_shared",
+]
+
+[[package]]
+name = "phf_generator"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48e4cc64c2ad9ebe670cb8fd69dd50ae301650392e81c05f9bfcb2d5bdbc24b0"
+dependencies = [
+ "phf_shared",
+ "rand",
+]
+
+[[package]]
+name = "phf_macros"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3444646e286606587e49f3bcf1679b8cef1dc2c5ecc29ddacaffc305180d464b"
+dependencies = [
+ "phf_generator",
+ "phf_shared",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.42",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90fcb95eef784c2ac79119d1dd819e162b5da872ce6f3c3abe1e8ca1c082f72b"
+dependencies = [
+ "siphasher",
 ]
 
 [[package]]
@@ -2163,9 +2218,8 @@ name = "sdk"
 version = "0.0.0"
 dependencies = [
  "app",
- "bytes",
+ "framework",
  "http 1.0.0",
- "http-body-util",
  "hyper 1.1.0",
  "matchit",
  "pavex",
@@ -2377,6 +2431,12 @@ dependencies = [
  "digest",
  "rand_core",
 ]
+
+[[package]]
+name = "siphasher"
+version = "0.3.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "slab"

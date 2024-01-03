@@ -1,0 +1,94 @@
+[
+  {
+    "path": "/healthz",
+    "method_guard": {
+      "inner": {
+        "Some": {
+          "bitset": 256,
+          "extensions": []
+        }
+      }
+    },
+    "request_handler": {
+      "callable": {
+        "registered_at": "app",
+        "import_path": "crate::http::routes::system::health_check"
+      },
+      "location": {
+        "line": 12,
+        "column": 10,
+        "file": "app/src/http/routes/mod.rs"
+      }
+    },
+    "error_handler": null
+  },
+  {
+    "path": "/auth//login",
+    "method_guard": {
+      "inner": {
+        "Some": {
+          "bitset": 256,
+          "extensions": []
+        }
+      }
+    },
+    "request_handler": {
+      "callable": {
+        "registered_at": "app",
+        "import_path": "crate::http::routes::auth::AuthenticatedSessionController::create"
+      },
+      "location": {
+        "line": 18,
+        "column": 18,
+        "file": "app/src/http/routes/mod.rs"
+      }
+    },
+    "error_handler": null
+  },
+  {
+    "path": "/auth//login",
+    "method_guard": {
+      "inner": {
+        "Some": {
+          "bitset": 128,
+          "extensions": []
+        }
+      }
+    },
+    "request_handler": {
+      "callable": {
+        "registered_at": "app",
+        "import_path": "crate::http::routes::auth::AuthenticatedSessionController::store"
+      },
+      "location": {
+        "line": 25,
+        "column": 18,
+        "file": "app/src/http/routes/mod.rs"
+      }
+    },
+    "error_handler": null
+  },
+  {
+    "path": "/auth//logout",
+    "method_guard": {
+      "inner": {
+        "Some": {
+          "bitset": 8,
+          "extensions": []
+        }
+      }
+    },
+    "request_handler": {
+      "callable": {
+        "registered_at": "app",
+        "import_path": "crate::http::routes::auth::AuthenticatedSessionController::destroy"
+      },
+      "location": {
+        "line": 32,
+        "column": 18,
+        "file": "app/src/http/routes/mod.rs"
+      }
+    },
+    "error_handler": null
+  }
+]

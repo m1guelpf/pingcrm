@@ -1,13 +1,8 @@
 use ensemble::{types::Hashed, Model};
-use pavex::{
-	blueprint::{
-		router::{GET, POST},
-		Blueprint,
-	},
-	f,
-	http::StatusCode,
+use framework::http::{
 	request::body::JsonBody,
 	response::{IntoResponse, Response},
+	Redirect, StatusCode,
 };
 use pavex_session::Session;
 use serde_json::json;
@@ -26,7 +21,7 @@ pub struct LoginRequest {
 }
 
 impl AuthenticatedSessionController {
-	pub fn create(inertia: &Inertia) -> InertiaResponse {
+	pub fn index(inertia: &Inertia) -> InertiaResponse {
 		inertia.render("Auth/Login", ())
 	}
 
@@ -48,37 +43,24 @@ impl AuthenticatedSessionController {
 			.unwrap();
 
 		let Some(user) = user else {
-			return inertia
-				.render(
-					"Auth/Login",
-					json!({
-						"errors": {
-							"email": ["Invalid email or password"]
-						}
-					}),
-				)
-				.into_response();
+			session.flash(
+				"errors",
+				json!({
+					"email": ["Invalid email or password"]
+				}),
+			);
+
+			return inertia.render("Auth/Login", ()).into_response();
 		};
 
 		session.set("auth.user", user.id);
 
 		StatusCode::OK.into_response()
 	}
-}
 
-pub fn routes() -> Blueprint {
-	let mut bp = Blueprint::new();
+	pub fn destroy(mut session: Session) -> Response {
+		session.forget("auth.user");
 
-	bp.route(
-		GET,
-		"/login",
-		f!(crate::routes::auth::AuthenticatedSessionController::create),
-	);
-	bp.route(
-		POST,
-		"/login",
-		f!(crate::routes::auth::AuthenticatedSessionController::store),
-	);
-
-	bp
+		Redirect::to("/auth/login")
+	}
 }

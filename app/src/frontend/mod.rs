@@ -1,10 +1,9 @@
-use pavex::{
-	blueprint::{constructor::Lifecycle, router::GET, Blueprint},
+use framework::{
+	application::CloningStrategy,
 	f,
-	http::{header, HeaderValue},
-	request::route::RouteParams,
-	response::Response,
+	http::{header, request::path::PathParams, response::Response, HeaderValue},
 };
+use pavex::blueprint::{constructor::Lifecycle, router::GET, Blueprint};
 use rust_embed::RustEmbed;
 
 pub mod inertia;
@@ -13,7 +12,7 @@ pub mod vite;
 pub use inertia::Inertia;
 pub use vite::Vite;
 
-#[RouteParams]
+#[PathParams]
 pub struct StaticParams {
 	path: String,
 }
@@ -24,7 +23,7 @@ pub struct StaticParams {
 ///
 /// Returns a 404 response if the file is not found.
 pub fn serve_assets<E: RustEmbed>(
-	RouteParams(StaticParams { path }): RouteParams<StaticParams>,
+	PathParams(StaticParams { path }): PathParams<StaticParams>,
 ) -> Response {
 	match E::get(&format!("assets/{path}")) {
 		Some(content) => {
@@ -36,9 +35,8 @@ pub fn serve_assets<E: RustEmbed>(
 					HeaderValue::from_str(mime.as_ref()).unwrap_or_else(|_| unreachable!()),
 				)
 				.set_typed_body(content.data)
-				.box_body()
 		},
-		None => Response::not_found().box_body(),
+		None => Response::not_found(),
 	}
 }
 
@@ -49,7 +47,9 @@ pub fn register(bp: &mut Blueprint) {
 	bp.constructor(
 		f!(crate::frontend::Vite::shared::<crate::FrontendDist>),
 		Lifecycle::Singleton,
-	);
+	)
+	.cloning(CloningStrategy::CloneIfNecessary);
+
 	bp.route(
 		GET,
 		"/assets/*path",

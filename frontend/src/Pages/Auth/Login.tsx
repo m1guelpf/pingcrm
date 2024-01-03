@@ -1,10 +1,12 @@
 import Logo from '@/Shared/Logo'
 import TextInput from '@/Shared/TextInput'
 import { FormEvent, useCallback } from 'react'
-import { Head, useForm } from '@inertiajs/react'
 import LoadingButton from '@/Shared/LoadingButton'
+import { Head, useForm, usePage } from '@inertiajs/react'
 
 const Login = () => {
+	const page = usePage()
+	console.log(page.props)
 	const { data, setData, post, processing, errors } = useForm({
 		email: 'johndoe@example.com',
 		password: 'secret',

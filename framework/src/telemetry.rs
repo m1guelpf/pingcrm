@@ -1,7 +1,7 @@
 use pavex::{
 	http::Version,
 	middleware::Next,
-	request::{route::MatchedRouteTemplate, RequestHead},
+	request::{path::MatchedPathPattern, RequestHead},
 	response::Response,
 };
 use std::{borrow::Cow, future::IntoFuture};
@@ -14,6 +14,7 @@ pub async fn logger<C: IntoFuture<Output = Response>>(
 	next: Next<C>,
 	root_span: RootSpan,
 ) -> Response {
+	dbg!("called telemetry middleware");
 	let response = next
 		.into_future()
 		.instrument(root_span.clone().into_inner())
@@ -40,7 +41,7 @@ impl RootSpan {
 	///
 	/// We follow `OpenTelemetry`'s HTTP semantic conventions as closely as
 	/// possible for field naming.
-	pub fn new(request_head: &RequestHead, matched_route: MatchedRouteTemplate) -> Self {
+	pub fn new(request_head: &RequestHead, matched_route: MatchedPathPattern) -> Self {
 		let user_agent = request_head
 			.headers
 			.get("User-Agent")
@@ -54,7 +55,7 @@ impl RootSpan {
 			user_agent.original = %user_agent,
 			http.response.status_code = tracing::field::Empty,
 			http.route = %matched_route,
-			http.target = %request_head.uri.path_and_query().map_or("", |p| p.as_str()),
+			http.target = %request_head.target.path_and_query().map_or("", |p| p.as_str()),
 		);
 		Self(span)
 	}

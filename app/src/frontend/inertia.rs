@@ -1,21 +1,24 @@
 #![allow(clippy::module_name_repetitions)]
 
-use indoc::formatdoc;
-use pavex::{
-	http::{header, HeaderName, HeaderValue, Method, StatusCode},
+use framework::http::{
+	header,
 	middleware::Next,
 	request::RequestHead,
 	response::{
 		body::{raw::RawBody, Html, Json},
 		IntoResponse, Response,
 	},
+	HeaderName, HeaderValue, Method, StatusCode,
 };
+use indoc::formatdoc;
+use pavex_session::Session;
+use serde_json::json;
 use sha256::digest as sha256;
 use std::{future::IntoFuture, sync::Arc};
 
 use crate::frontend::vite::Vite;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Page<T = serde_json::Value> {
 	pub props: T,
 	pub url: String,
@@ -47,6 +50,7 @@ impl Inertia {
 		Self {
 			vite,
 			version,
+
 			request: Some(request),
 		}
 	}
@@ -59,12 +63,10 @@ impl Inertia {
 	///
 	/// This function will panic if the given URL is not valid UTF-8.
 	pub fn redirect(&self, url: &str) -> Response {
-		Response::conflict()
-			.append_header(
-				HeaderName::from_static("x-inertia-location"),
-				HeaderValue::from_str(url).unwrap(),
-			)
-			.box_body()
+		Response::conflict().append_header(
+			HeaderName::from_static("x-inertia-location"),
+			HeaderValue::from_str(url).unwrap(),
+		)
 	}
 
 	/// Returns an Inertia response.
@@ -78,12 +80,17 @@ impl Inertia {
 		props: T,
 	) -> InertiaResponse {
 		let request = self.request.clone().unwrap();
+		let mut props = serde_json::to_value(props).unwrap();
+
+		if !props.is_object() {
+			props = json!({});
+		}
 
 		let page = Page {
+			props,
 			component,
 			url: request.path.clone(),
 			version: self.version.clone(),
-			props: serde_json::to_value(props).unwrap(),
 		};
 
 		InertiaResponse {
@@ -117,6 +124,7 @@ pub async fn middleware<C: IntoFuture<Output = Response>>(
 		.headers
 		.get(header::REFERER)
 		.and_then(|header| header.to_str().ok());
+
 	if response.status() == StatusCode::OK && has_empty_body && referer.is_some() {
 		return inertia.redirect(referer.unwrap_or_else(|| unreachable!()));
 	}
@@ -134,13 +142,15 @@ pub async fn middleware<C: IntoFuture<Output = Response>>(
 pub struct InertiaRequest {
 	path: String,
 	is_xhr: bool,
+	session: Session,
 	version: Option<String>,
 }
 
 impl InertiaRequest {
-	pub fn new(request: &RequestHead) -> Self {
+	pub fn new(request: &RequestHead, session: Session) -> Self {
 		Self {
-			path: request.uri.path().to_string(),
+			session,
+			path: request.target.path().to_string(),
 			is_xhr: request
 				.headers
 				.get("X-Inertia")
@@ -160,6 +170,21 @@ pub struct InertiaResponse {
 }
 
 impl InertiaResponse {
+	fn get_page(&self) -> Page {
+		let mut page = self.page.clone();
+		let props = page.props.as_object_mut().unwrap();
+
+		props.insert(
+			"auth".to_string(),
+			json!({
+				"user": self.request.session.get::<i64>("auth.user")
+			}),
+		);
+		props.insert("flash".to_string(), json!(self.request.session.flashed()));
+
+		page
+	}
+
 	fn html_page(&self) -> String {
 		formatdoc! {r#"
             <!doctype html>
@@ -174,7 +199,7 @@ impl InertiaResponse {
                     <div id="app" data-page='{}'></div>
                 </body>
             </html>
-        "#, self.vite.dev_scripts().unwrap_or_default(), self.vite.asset("src/index.tsx").unwrap(), serde_json::to_string(&self.page).unwrap()}
+        "#, self.vite.dev_scripts().unwrap_or_default(), self.vite.asset("src/index.tsx").unwrap(), serde_json::to_string(&self.get_page()).unwrap()}
 	}
 }
 
@@ -186,13 +211,9 @@ impl IntoResponse for InertiaResponse {
 		);
 
 		if self.request.is_xhr {
-			response
-				.set_typed_body(Json::new(self.page).unwrap())
-				.box_body()
+			response.set_typed_body(Json::new(self.get_page()).unwrap())
 		} else {
-			response
-				.set_typed_body(Html::from(Self::html_page(&self)))
-				.box_body()
+			response.set_typed_body(Html::from(Self::html_page(&self)))
 		}
 	}
 }

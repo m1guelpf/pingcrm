@@ -1,5 +1,4 @@
 use cargo_px_env::generated_pkg_manifest_path;
-use pavex_cli_client::Client;
 use std::error::Error;
 
 /// Generate the `sdk` crate using Pavex's CLI.
@@ -9,8 +8,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 		.unwrap()
 		.to_path_buf();
 
-	Client::new()
-		.generate(app::blueprint(), generated_dir)
-		.execute()?;
+	app::booststrap().build(generated_dir)?;
+
 	Ok(())
 }

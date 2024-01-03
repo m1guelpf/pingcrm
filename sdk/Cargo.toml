@@ -15,9 +15,8 @@ path = "src/lib.rs"
 
 [dependencies]
 app = { version = "0.0.0", path = "../app", package = "app" }
-bytes = { version = "1.5.0", package = "bytes" }
+framework = { version = "0.0.0", path = "../framework", package = "framework" }
 http = { version = "1.0.0", package = "http" }
-http_body_util = { version = "0.1.0", package = "http-body-util" }
 hyper = { version = "1.1.0", package = "hyper" }
 matchit = { version = "0.7.3", git = "https://github.com/ibraheemdev/matchit", branch = "master", package = "matchit" }
 pavex = { version = "0.1.0", git = "https://github.com/LukeMathWalker/pavex", branch = "main", package = "pavex" }
